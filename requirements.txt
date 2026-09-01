@@ -1,0 +1,4 @@
+requests
+pyspark
+pytest
+python-dotenv
