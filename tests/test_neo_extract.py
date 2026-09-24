@@ -1,9 +1,8 @@
-import os
 from datetime import date, timedelta
 
-os.environ.setdefault("NASA_API_KEY", "test-key")
+import pytest
 
-from src.ingest.neo_extract import daterange_windows
+from src.bronze.neo_extract import daterange_windows, get_api_key, run
 
 
 def test_daterange_windows_splits_into_seven_day_chunks_with_short_final_window():
@@ -39,3 +38,15 @@ def test_daterange_windows_single_day_range_yields_one_window():
     windows = list(daterange_windows(start, start, days=7))
 
     assert windows == [(start, start)]
+
+
+def test_get_api_key_raises_clear_error_when_missing(monkeypatch):
+    monkeypatch.delenv("NASA_API_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="NASA_API_KEY"):
+        get_api_key()
+
+
+def test_run_rejects_start_after_end():
+    with pytest.raises(ValueError, match="after end date"):
+        run(date(2026, 2, 1), date(2026, 1, 1))

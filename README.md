@@ -3,12 +3,12 @@
 A data engineering pipeline for NASA's [Near Earth Object (NEO) API](https://api.nasa.gov/),
 built around the **medallion architecture**:
 
-- **Bronze** (`src/ingest/`) — raw data extraction. Fetches NEO feed data from the API
+- **Bronze** (`src/bronze/`) — raw data extraction. Fetches NEO feed data from the API
   in weekly windows and lands it as untouched JSON, partitioned by start date, under
   `data/bronze/`. *(Implemented.)*
-- **Silver** (`src/transform/`) — cleaned, validated, and conformed data (PySpark).
+- **Silver** (`src/silver/`) — cleaned, validated, and conformed data (PySpark).
   *(Coming later.)*
-- **Gold** (`src/models/`) — business-level aggregates and models (SQL). *(Coming later.)*
+- **Gold** (`src/gold/`) — business-level aggregates and models (SQL). *(Coming later.)*
 
 Only the bronze layer is implemented so far.
 
@@ -36,7 +36,7 @@ Only the bronze layer is implemented so far.
 ## Running the bronze extraction
 
 ```bash
-python -m src.ingest.neo_extract --start 2026-01-01 --end 2026-01-14
+python -m src.bronze.neo_extract --start 2026-01-01 --end 2026-01-14
 ```
 
 `--start` and `--end` are optional (`YYYY-MM-DD`); they default to a preset range in

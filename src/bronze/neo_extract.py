@@ -4,13 +4,34 @@ import json
 import time
 from datetime import date, timedelta
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from dotenv import load_dotenv
 load_dotenv()
 
-API_KEY = os.environ["NASA_API_KEY"]
 BASE_URL = "https://api.nasa.gov/neo/rest/v1/feed"
 BRONZE_DIR = "data/bronze"
+
+
+def get_api_key() -> str:
+    api_key = os.environ.get("NASA_API_KEY")
+    if not api_key:
+        raise RuntimeError("NASA_API_KEY is not set. Add it to your .env file or export it in your shell.")
+    return api_key
+
+
+def build_session(retries: int = 5, backoff_factor: float = 2.0) -> requests.Session:
+    retry = Retry(
+        total=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"],
+        respect_retry_after_header=True,
+    )
+    session = requests.Session()
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+    return session
 
 
 def daterange_windows(start: date, end: date, days: int = 7):
@@ -21,9 +42,9 @@ def daterange_windows(start: date, end: date, days: int = 7):
         current = window_end + timedelta(days=1)
 
 
-def fetch_window(start: date, end: date) -> dict:
-    params = {"start_date": start.isoformat(), "end_date": end.isoformat(), "api_key": API_KEY}
-    response = requests.get(BASE_URL, params=params, timeout=30)
+def fetch_window(session: requests.Session, api_key: str, start: date, end: date) -> dict:
+    params = {"start_date": start.isoformat(), "end_date": end.isoformat(), "api_key": api_key}
+    response = session.get(BASE_URL, params=params, timeout=30)
     response.raise_for_status()
     return response.json()
 
@@ -36,8 +57,12 @@ def save_raw(payload: dict, start: date, end: date) -> None:
 
 
 def run(start: date, end: date) -> None:
+    if start > end:
+        raise ValueError(f"start date {start} is after end date {end}")
+    api_key = get_api_key()
+    session = build_session()
     for window_start, window_end in daterange_windows(start, end):
-        save_raw(fetch_window(window_start, window_end), window_start, window_end)
+        save_raw(fetch_window(session, api_key, window_start, window_end), window_start, window_end)
         time.sleep(1)
 
 
@@ -55,7 +80,10 @@ def parse_args() -> argparse.Namespace:
         default=date(2026, 8, 31),
         help="End date in YYYY-MM-DD format (default: 2026-08-31).",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.start > args.end:
+        parser.error(f"--start ({args.start}) must be on or before --end ({args.end})")
+    return args
 
 
 if __name__ == "__main__":
