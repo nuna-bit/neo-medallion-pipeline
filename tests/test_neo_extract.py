@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from src.bronze.neo_extract import daterange_windows, get_api_key, run
+from src.bronze.neo_extract import daterange_windows, get_api_key, redact_api_key, run
 
 
 def test_daterange_windows_splits_into_seven_day_chunks_with_short_final_window():
@@ -50,3 +50,13 @@ def test_get_api_key_raises_clear_error_when_missing(monkeypatch):
 def test_run_rejects_start_after_end():
     with pytest.raises(ValueError, match="after end date"):
         run(date(2026, 2, 1), date(2026, 1, 1))
+
+
+def test_redact_api_key_removes_key_from_links():
+    payload = {"links": {"self": "http://api.nasa.gov/neo/rest/v1/feed?api_key=secret123"}, "element_count": 1}
+
+    redacted = redact_api_key(payload, "secret123")
+
+    assert "secret123" not in str(redacted)
+    assert redacted["links"]["self"].endswith("api_key=REDACTED")
+    assert redacted["element_count"] == 1

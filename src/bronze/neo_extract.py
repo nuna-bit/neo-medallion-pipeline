@@ -49,6 +49,11 @@ def fetch_window(session: requests.Session, api_key: str, start: date, end: date
     return response.json()
 
 
+def redact_api_key(payload: dict, api_key: str) -> dict:
+    # NASA echoes the api_key back inside the "links" URLs; keep it out of the stored files
+    return json.loads(json.dumps(payload).replace(api_key, "REDACTED"))
+
+
 def save_raw(payload: dict, start: date, end: date) -> None:
     partition_dir = os.path.join(BRONZE_DIR, f"start={start.isoformat()}")
     os.makedirs(partition_dir, exist_ok=True)
@@ -62,7 +67,8 @@ def run(start: date, end: date) -> None:
     api_key = get_api_key()
     session = build_session()
     for window_start, window_end in daterange_windows(start, end):
-        save_raw(fetch_window(session, api_key, window_start, window_end), window_start, window_end)
+        payload = redact_api_key(fetch_window(session, api_key, window_start, window_end), api_key)
+        save_raw(payload, window_start, window_end)
         time.sleep(1)
 
 
